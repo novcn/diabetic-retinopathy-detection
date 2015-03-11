@@ -16,14 +16,18 @@ def im_load(img_name, test=False, normalise=True):
     path = "data/raw/train/%s.jpeg" % (img_name)
   print "loading %s" % path
   img = skimage.io.imread(path)
-  img = skimage.transform.resize(img, (128, 128))
   if normalise:
     img = img.astype('float32') / 255.0 # normalise and convert to float
   return img
 
-def im_save(img_name, img):
-  path = "data/altrd/train/%s.jpeg" % (img_name)
+def im_save(img_name, img, test=False):
+  if(test):
+    path = "data/altered/subset/%s.jpeg" % (img_name)
+  else:
+    path = "data/altrd/train/%s.jpeg" % (img_name)
   skimage.io.imsave(path, img)
+
+
 
 def find_mid(img, thresh=.078):
   size_x = img.shape[0]
