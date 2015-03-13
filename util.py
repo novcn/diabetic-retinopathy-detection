@@ -9,23 +9,41 @@ np.set_printoptions(threshold=np.nan)
 
 # img = skimage.io.imread("test.jpeg")
 
-def im_load(img_name, test=False, normalise=True):
-  if(test):
-    path = "data/raw/subset/%s.jpeg" % (img_name)
-  else:
-    path = "data/raw/train/%s.jpeg" % (img_name)
+def im_load(img_name, data_set, normalise=True):
+  path = "data/raw/%s/%s.jpeg" % (data_set, img_name)
   print "loading %s" % path
   img = skimage.io.imread(path)
   if normalise:
     img = img.astype('float32') / 255.0 # normalise and convert to float
   return img
 
-def im_save(img_name, img, test=False):
-  if(test):
-    path = "data/altered/subset/%s.jpeg" % (img_name)
-  else:
-    path = "data/altrd/train/%s.jpeg" % (img_name)
+def im_save(img_name, img, data_set):
+  path = "data/altered/%s/%s.jpeg" % (data_set, img_name)
   skimage.io.imsave(path, img)
+
+def im_rescale(img):
+  return skimage.transform.rescale(img, 0.1)
+  # size_x = img.shape[0]
+  # size_y = img.shape[1]
+
+  # if(size_x > size_y):
+  #   new_x = 128 #TODO, maybe if this value were larger it would increase accuracy?
+  #   new_y = (new_x * size_y) / size_x
+  # else:
+  #   new_y = 128
+  #   new_x = (new_y * size_x) / size_y
+
+  #is this better or is it better to rescale?
+  ## Also, what weould happen if you were to fist crop the image in one dimension and then
+  ## resize to that size on both directions
+  # return skimage.transform.resize(img, (size_x, size_y))
+    # 128 / 3888 * 2592
+
+  print("size_x: %d size_y: %d new_x: %d new_y: %d" % (size_x, size_y, new_x, new_y))
+
+def im_resize(img, dimension=128):
+  return skimage.transform.resize(img, (64, 64))
+
 
 
 
@@ -42,29 +60,41 @@ def find_mid(img, thresh=.078):
   # return -1
 
 def im_crop(img, mid, thresh=0.078):
-  size_x = img.shape[0]
-  size_y = img.shape[1]
+  size_x = img.shape[1]
+  size_y = img.shape[0]
   length = len(img[0])
-  
-  print("old mid: %d" % mid)
 
+  r = 0  
   for l in range(0, length):
-    total = np.add.reduce(img[mid][l])
-    mthresh = thresh * 3
-    if( total > mthresh ):
+    r = length - l
+    if( (size_x - l*2) <= size_y):
       break
+    # l_total = np.add.reduce(img[mid][l])
+    # r_total = np.add.reduce(img[mid][r])
+    # if( total > thresh*3 ):
+    #   break
 
-  for r in range(length-1, 0, -1):
-    total = np.add.reduce(img[mid][r])
-    if( total > thresh*3 ):
-      break
+  # for r in range(length-1, 0, -1):
+  #   total = np.add.reduce(img[mid][r])
+  #   if( total > thresh*3 ):
+  #     break
 
-  diff = l - r
-  top = mid - (diff // 2)
-  bot = mid + (diff // 2)
+
+  # diff = l - r
+  # top = mid - (diff // 2)
+  # bot = mid + (diff // 2)
 
   # print("mid: %d size_x: %d size_y: %d t: %d b: %d l_side: %d r_side: %d" % (mid, size_x, size_y, t, b, l_side, r_side))
+  print("r: %d l: %d x: %d y: %d" % (r, l, size_x, size_y))
   return img[0:,l:r]
+
+# def im_crop(img, thres=0.078):
+#   size_x = img.shape[0]
+#   size_y = img.shape[1]
+#   mid = size_y // 2
+#   length = len(img[0])
+
+
 
 
 def im_lcn(img, sigma_mean=3, sigma_std=99):
