@@ -9,8 +9,13 @@ np.set_printoptions(threshold=np.nan)
 
 # img = skimage.io.imread("test.jpeg")
 
-def im_load(img_name, data_set, normalise=True):
-  path = "data/raw/%s/%s.jpeg" % (data_set, img_name)
+"""
+img_name: name of the image to load
+mode: <test> or <train> or <validate>
+data_set: the data_set to use
+"""
+def im_load(img_name, mode, data_set, normalise=True):
+  path = "data/%s/%s/%s.jpeg" % (mode, data_set, img_name)
   print "loading %s" % path
   img = skimage.io.imread(path)
   if normalise:
@@ -39,7 +44,7 @@ def im_rescale(img):
   # return skimage.transform.resize(img, (size_x, size_y))
     # 128 / 3888 * 2592
 
-  print("size_x: %d size_y: %d new_x: %d new_y: %d" % (size_x, size_y, new_x, new_y))
+  #print("size_x: %d size_y: %d new_x: %d new_y: %d" % (size_x, size_y, new_x, new_y))
 
 def im_resize(img, dimension=128):
   return skimage.transform.resize(img, (64, 64))
@@ -85,7 +90,7 @@ def im_crop(img, mid, thresh=0.078):
   # bot = mid + (diff // 2)
 
   # print("mid: %d size_x: %d size_y: %d t: %d b: %d l_side: %d r_side: %d" % (mid, size_x, size_y, t, b, l_side, r_side))
-  print("r: %d l: %d x: %d y: %d" % (r, l, size_x, size_y))
+  #print("r: %d l: %d x: %d y: %d" % (r, l, size_x, size_y))
   return img[0:,l:r]
 
 # def im_crop(img, thres=0.078):
