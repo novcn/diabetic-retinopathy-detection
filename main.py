@@ -1,3 +1,6 @@
+import theano
+import theano.tensor as T
+
 import os
 import util
 import model
@@ -6,8 +9,76 @@ import numpy as np
 np.set_printoptions(threshold=1000)
 import time
 import sys
+import convnet
+
+def import_image(_name, _phase, _set):
+  try:
+    img = util.im_load(_name, _phase, _set)
+  except IOError:
+    print("warning %s not found " % (_name))
+    return []
+  mid = util.find_mid(img)
+  img = util.im_crop(img, mid)
+  img = util.im_resize(img)
+  im_len = np.prod(img.shape)
+  img = np.reshape(img, im_len)
+  return img
+
+
+def get_data_set(_phase, _set, save=False):
+  imgs = []
+  lvls = []
+
+  if(_phase == "test"):
+    test_files = os.listdir("data/test/%s" % (_set))
+    for image in test_files:
+      name = image.replace(".jpeg", "")
+      img = import_image(name, _phase, _set)
+      if img != []:
+        imgs.append(img)
+    return imgs
+  
+  if(_phase == "train" or _phase == "valid"):
+    with open('data/csv/%s.csv' % (_set + "_" + _phase)) as csvfile:
+      reader = csv.DictReader(csvfile)
+      for row in reader:
+        img = import_image(row["image"], _phase, _set)
+        if img != []:
+          imgs.append(img)
+        lvls.append(row["level"])
+
+        if(save):
+          print("saving image...")
+          util.im_save(row["image"], img, _set)
+
+    imgs = np.vstack(imgs)
+    set = (imgs, lvls)
+    return set
+  
+  else:
+    print("Invalid phase: %s " % (_phase))
+
+
+def shared_dataset(data_xy, borrow=True):
+    data_x, data_y = data_xy
+    shared_x = theano.shared(np.asarray(data_x,
+                                           dtype=theano.config.floatX),
+                             borrow=borrow)
+    shared_y = theano.shared(np.asarray(data_y,
+                                           dtype=theano.config.floatX),
+                             borrow=borrow)
+    # When storing data on the GPU it has to be stored as floats
+    # therefore we will store the labels as ``floatX`` as well
+    # (``shared_y`` does exactly that). But during our computations
+    # we need them as ints (we use labels as index, and if they are
+    # floats it doesn't make sense) therefore instead of returning
+    # ``shared_y`` we will have to cast it to int. This little hack
+    # lets ous get around this issue
+    return shared_x, T.cast(shared_y, 'int32')
+
 
 def main():
+
   if(len(sys.argv) == 2):
     if str(sys.argv[1]) == "subset":
       _set = "subset"
@@ -20,74 +91,30 @@ def main():
     _csv_test = "train.csv"
 
   start = time.time()
-  # samples = [b]
-  train_set = []
-  train_lvls = []
-  with open('data/%s.csv' % (_set)) as csvfile:
-    reader = csv.DictReader(csvfile)
-    for row in reader:
-      try:
-        img = util.im_load(row["image"], "train", _set)
-      except IOError:
-        #print("warning %s not found " % (row["image"]))
-        continue
 
-      #print("rescaling image...")
-      # img = util.im_rescale(img)
-      
-      #print("finding mid...")
-      mid = util.find_mid(img)
-      #print("cropping image...")
-      img = util.im_crop(img, mid)
-      img = util.im_resize(img)
-      im_len = np.prod(img.shape)
-      img = np.reshape(img, im_len)
+  train_set = get_data_set("train", _set)
+  test_set = get_data_set("test", _set)
+  valid_set = get_data_set("valid", _set)
 
-      #print("feature count: %d" % len(img))
-      train_set.append(img)
-      train_lvls.append(row["level"])
+  test_set_x, test_set_y = shared_dataset(test_set)
+  valid_set_x, valid_set_y = shared_dataset(valid_set)
+  train_set_x, train_set_y = shared_dataset(train_set)
 
-    #print("saving image...")
-    #   # util.im_save(row["image"], img, _set)
-  test_set = []
-  test_labels = [] 
-  test_files = os.listdir("data/test/%s" % (_set))
-  for image in test_files:
-    try:
-      image = image.replace(".jpeg", "")
-      img = util.im_load(image, "test", _set)
-    except IOError:
-      print("warning %s THIS SHOULD NEVER HAPPEN" % (image))
-      continue
-
-    #print("finding mid...")
-    mid = util.find_mid(img)
-    #print("cropping image...")
-    img = util.im_crop(img, mid)
-    img = util.im_resize(img)
-    im_len = np.prod(img.shape)
-    img = np.reshape(img, im_len)
-
-    #print("feature count: %d" % len(img))
-    test_set.append(img)
-    test_labels.append(image)
+  datasets = [(train_set_x, train_set_y), (valid_set_x, valid_set_y), (test_set_x, test_set_y)]
 
 
-  test_set = np.vstack(test_set)
+  convnet.evaluate_lenet5(datasets)  
 
-  predictions = model.random_forest(train_set, train_lvls, test_set)
+  predictions = model.random_forest(train_set, test_set)
+
   print("predicts: ")
   print(predictions)
 
-  with open('data/%s' % (_csv_test)) as csvfile:
+  with open('data/csv/%s' % (_csv_test)) as csvfile:
     reader = csv.DictReader(csvfile)
     k = 0
     correct = 0
-    #total = 0
     for row in reader: 
-      # print(row["image"])
-      # print(test_set[k])
-      # print("comparing %s: %d =? %s" % (test_labels[k], int(predictions[k]), row["level"]))
       if(int(predictions[k]) == int(row["level"])):
         correct += 1
       k += 1
@@ -96,11 +123,6 @@ def main():
     print("total: %d" % k)
     accuracy = (correct * 100) / k
     print("accuracy: %%%.2f" % accuracy)
-      #print("%s : %s" % (test_files[k].replace(".jpeg", ""), predictions[k]))
-
-        #print("saving image...")
-        # util.im_save(row["image"], img, _set)
-
 
   end = time.time()
   print("time elapsed: ")

@@ -93,69 +93,36 @@ def load_data(dataset):
     # LOAD DATA #
     #############
 
-    # Download the MNIST dataset if it is not present
-    # data_dir, data_file = os.path.split(dataset)
-    # if data_dir == "" and not os.path.isfile(dataset):
-    #     # Check if dataset is in the data directory.
-    #     new_path = os.path.join(
-    #         os.path.split(__file__)[0],
-    #         "..",
-    #         "data",
-    #         dataset
-    #     )
-    #     if os.path.isfile(new_path) or data_file == 'mnist.pkl.gz':
-    #         dataset = new_path
+    data_dir, data_file = os.path.split(dataset)
+    if data_dir == "" and not os.path.isfile(dataset):
+        # Check if dataset is in the data directory.
+        new_path = os.path.join(
+            os.path.split(__file__)[0],
+            "..",
+            "data",
+            dataset
+        )
+        if os.path.isfile(new_path) or data_file == 'mnist.pkl.gz':
+            dataset = new_path
 
-    # if (not os.path.isfile(dataset)) and data_file == 'mnist.pkl.gz':
-    #     import urllib
-    #     origin = (
-    #         'http://www.iro.umontreal.ca/~lisa/deep/data/mnist/mnist.pkl.gz'
-    #     )
-    #     print 'Downloading data from %s' % origin
-    #     urllib.urlretrieve(origin, dataset)
+    if (not os.path.isfile(dataset)) and data_file == 'mnist.pkl.gz':
+        import urllib
+        origin = (
+            'http://www.iro.umontreal.ca/~lisa/deep/data/mnist/mnist.pkl.gz'
+        )
+        print 'Downloading data from %s' % origin
+        urllib.urlretrieve(origin, dataset)
 
     print '... loading data'
 
     # Load the dataset
-    # f = gzip.open(dataset, 'rb')
-    base_dir = "/home/crake/w15/mach_472_Lowd/diabetic-retinopathy-detection/"
-    _set = "subset"
-    train_img = []
-    train_lvls = []
-    with open( base_dir + 'data/%s.csv' % (_set)) as csvfile:
-        reader = csv.DictReader(csvfile)
-        for row in reader:
-          try:
-            img = util.im_load(row["image"], "train", _set)
-          except IOError:
-            print("warning %s not found " % (row["image"]))
-            continue
+    f = gzip.open(dataset, 'rb')
+    print(dataset)
+    print
+    train_set, valid_set, test_set = cPickle.load(f)
+    print(test_set)
+    f.close()
 
-          #print("rescaling image...")
-          # img = util.im_rescale(img)
-          
-          #print("finding mid...")
-          mid = util.find_mid(img)
-          #print("cropping image...")
-          img = util.im_crop(img, mid)
-          img = util.im_resize(img)
-          im_len = np.prod(img.shape)
-          img = np.reshape(img, im_len)
-
-          #print("feature count: %d" % len(img))
-          train_img.append(img)
-          train_lvls.append(row["level"])
-
-    train_set = (train_img, train_lvls)
-    # train_set, valid_set, test_set = cPickle.load(f)
-    print(train_set)
-    # f.close()
-    #train_set, valid_set, test_set format: tuple(input, target)
-    #input is an numpy.ndarray of 2 dimensions (a matrix)
-    #witch row's correspond to an example. target is a
-    #numpy.ndarray of 1 dimensions (vector)) that have the same length as
-    #the number of rows in the input. It should give the target
-    #target to the example with the same index in the input.
 
     def shared_dataset(data_xy, borrow=True):
         data_x, data_y = data_xy
@@ -293,9 +260,7 @@ class LeNetConvPoolLayer(object):
         self.params = [self.W, self.b]
 
 
-def evaluate_lenet5(learning_rate=0.1, n_epochs=200,
-                    dataset='mnist.pkl.gz',
-                    nkerns=[20, 50], batch_size=500):
+def evaluate_lenet5(datasets, learning_rate=0.1, n_epochs=200, dataset='mnist.pkl.gz', nkerns=[20, 50], batch_size=500):
     """ Demonstrates lenet on MNIST dataset
 
     :type learning_rate: float
@@ -314,7 +279,7 @@ def evaluate_lenet5(learning_rate=0.1, n_epochs=200,
 
     rng = numpy.random.RandomState(23455)
 
-    datasets = load_data(dataset)
+    # datasets = load_data(dataset)
 
     train_set_x, train_set_y = datasets[0]
     valid_set_x, valid_set_y = datasets[1]
@@ -392,14 +357,17 @@ def evaluate_lenet5(learning_rate=0.1, n_epochs=200,
     cost = layer3.negative_log_likelihood(y)
 
     # create a function to compute the mistakes that are made by the model
-    test_model = theano.function(
-        [index],
-        layer3.errors(y),
-        givens={
-            x: test_set_x[index * batch_size: (index + 1) * batch_size],
-            y: test_set_y[index * batch_size: (index + 1) * batch_size]
-        }
-    )
+    # print(test_set_x)
+    # print(test_set_y)
+    # print("hjerer")
+    # test_model = theano.function(
+    #     [index],
+    #     layer3.errors(y),
+    #     givens={
+    #         x: test_set_x[index * batch_size: (index + 1) * batch_size],
+    #         y: test_set_y[index * batch_size: (index + 1) * batch_size]
+    #     }
+    # )
 
     validate_model = theano.function(
         [index],
