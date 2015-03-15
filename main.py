@@ -45,12 +45,12 @@ def main():
 
       #print("feature count: %d" % len(img))
       train_set.append(img)
-      train_lvls.append(row["label"])
+      train_lvls.append(row["level"])
 
     #print("saving image...")
     #   # util.im_save(row["image"], img, _set)
   test_set = []
-
+  test_labels = [] 
   test_files = os.listdir("data/test/%s" % (_set))
   for image in test_files:
     try:
@@ -70,10 +70,14 @@ def main():
 
     #print("feature count: %d" % len(img))
     test_set.append(img)
+    test_labels.append(image)
 
 
   test_set = np.vstack(test_set)
+
   predictions = model.random_forest(train_set, train_lvls, test_set)
+  print("predicts: ")
+  print(predictions)
 
   with open('data/%s' % (_csv_test)) as csvfile:
     reader = csv.DictReader(csvfile)
@@ -81,23 +85,21 @@ def main():
     correct = 0
     #total = 0
     for row in reader: 
-      print(row["image"])
-      print(test_set[k])
-      print("comparing: %d =? %s" % (int(predictions[k]), row["level"]))
+      # print(row["image"])
+      # print(test_set[k])
+      # print("comparing %s: %d =? %s" % (test_labels[k], int(predictions[k]), row["level"]))
       if(int(predictions[k]) == int(row["level"])):
         correct += 1
       k += 1
 
-  print("predicts: ")
-  print(predictions)
-  print("correct: %d" % correct)
-  print("total: %d" % k)
-  accuracy = (correct / k) * 100
-  print("accuracy: %.2f" % accuracy)
-    #print("%s : %s" % (test_files[k].replace(".jpeg", ""), predictions[k]))
+    print("correct: %d" % correct)
+    print("total: %d" % k)
+    accuracy = (correct * 100) / k
+    print("accuracy: %%%.2f" % accuracy)
+      #print("%s : %s" % (test_files[k].replace(".jpeg", ""), predictions[k]))
 
-      #print("saving image...")
-      # util.im_save(row["image"], img, _set)
+        #print("saving image...")
+        # util.im_save(row["image"], img, _set)
 
 
   end = time.time()
