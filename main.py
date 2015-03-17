@@ -70,7 +70,52 @@ def get_data_set(_phase, _set, save=False, lcn=False):
   else:
     print("Invalid phase: %s " % (_phase))
 
+def get_stats(_predictions, _csv_test, _label):
+  if(len(_predictions.shape) == 1):
+    _predictions = np.array([_predictions])
 
+  stats_file = open("statistics.txt", 'a')  
+  human_ratings = []
+  machine_ratings = []
+  with open('data/csv/%s' % (_csv_test)) as csvfile:
+    thresh = (1. / 2.) + .0001
+    reader = csv.DictReader(csvfile)
+    correct = 0
+    votes = np.array([0, 0, 0, 0, 0])
+    k = 0
+    for row in reader:
+      for predict in _predictions:
+        votes[predict[k]] += 1
+      human_vote = int(row["level"])
+
+      _max = max(votes)
+      best = np.where(votes==_max)
+      confidence = float(_max) / float(len(votes))
+      if(confidence < thresh):
+        machine_vote = 0
+      else:
+        machine_vote = int(best[0][0])
+
+      machine_ratings.append(machine_vote)
+      human_ratings.append(human_vote)
+      if(machine_vote == human_vote):
+        correct += 1
+      k += 1
+
+    kap = kappa.quadratic_weighted_kappa(human_ratings, machine_ratings)
+    acc = (float(correct) / float(k)) * 100
+
+    stats_file.write(_label + "\n")
+    stats_file.write("human ratings" + "\n")
+    stats_file.write(str(human_ratings) +  "\n")
+    stats_file.write("machine ratings" + "\n")
+    stats_file.write(str(machine_ratings) + "\n")
+    stats_file.write(str(kap) + "\n")
+    stats_file.write(str(acc) + "\n\n\n")
+
+    print(_label)
+    print("kappa: %s" % kap)
+    print("acc: %%%.2f\n" % acc)
 
 def main():
 
@@ -91,66 +136,42 @@ def main():
   test_set = get_data_set("test", _set)
   alt_train_set = get_data_set("train", _set, lcn=True)
   alt_test_set = get_data_set("test", _set, lcn=True)
-  # valid_set = get_data_set("valid", _set)
 
-  # test_set_x, test_set_y = shared_dataset(test_set)
-  # valid_set_x, valid_set_y = shared_dataset(valid_set)
-  # train_set_x, train_set_y = shared_dataset(train_set)
+  for k in range(0, 3):
+    #RANDOM FOREST
+    rf_predictions = model.random_forest(train_set, test_set)
+    rf_alt_predictions = model.random_forest(alt_train_set, alt_test_set)
+    get_stats(rf_predictions, _csv_test, "Random Forest")
+    get_stats(rf_alt_predictions, _csv_test, "Altered Random Forest")
+    get_stats(np.array([rf_predictions, rf_alt_predictions]), _csv_test, "Voting Random Forest")
 
-  # datasets = [(train_set_x, train_set_y), (valid_set_x, valid_set_y), (test_set_x, test_set_y)]
+    #EXTRA TREES
+    et_predictions = model.extra_trees(train_set, test_set)
+    et_alt_predictions = model.extra_trees(alt_train_set, alt_test_set)
+    get_stats(et_predictions, _csv_test, "Extra Trees")
+    get_stats(et_alt_predictions, _csv_test, "Altered Extra Trees")
+    get_stats(np.array([et_predictions, et_alt_predictions]), _csv_test, "Voting Extra Forest")
 
-  # convnet.evaluate_lenet5(datasets)  
-  max_ = -1
-  avg = 0
-  i = 1
-  predictions = model.random_forest(train_set, test_set)
-  alt_predictions = model.random_forest(alt_train_set, alt_test_set)
+    #SUPPORT VECTOR MACHINE
+    sv_predictions = model.kernel_svm(train_set, test_set)
+    sv_alt_predictions = model.kernel_svm(alt_train_set, alt_test_set)
+    get_stats(np.array(sv_predictions), _csv_test, "SVM Forest")
+    get_stats(np.array(sv_alt_predictions), _csv_test, "Altered SVM Forest")
+    get_stats(np.array([sv_predictions, sv_alt_predictions]), _csv_test, "Voting SVM Forest")
 
-  print("predicts: ")
-  print(predictions)
-  human_rate = []
-  auto_rate = []
-  with open('data/csv/%s' % (_csv_test)) as csvfile:
-    reader = csv.DictReader(csvfile)
-    k = 0
-    correct = 0
-    w = 0
-    # if(_set != "full"):
-    #   for row in reader: 
-    #     if(predictions[k] == alt_predictions[k]):
-    #       p = predictions[k]
-    #     else:
-    #       p = 0
-    #     human_rate.append(int(row["level"]))
-    #     auto_rate.append(p)
-    #     # if(p == int(row["levlel"])):
-    #     if(p == int(row["level"])):
-    #       correct += 1
-    #     k += 1
+    #NAIVE BAYES
+    nb_predictions = model.naive_bayes(train_set, test_set)
+    nb_alt_predictions = model.naive_bayes(alt_train_set, alt_test_set)
+    get_stats(np.array(nb_predictions), _csv_test, "SVM Forest")
+    get_stats(np.array(nb_alt_predictions), _csv_test, "Altered SVM Forest")
+    get_stats(np.array([nb_predictions, nb_alt_predictions]), _csv_test, "Voting SVM Forest")
 
-    #   print("correct: %d" % correct)
-    #   print("total: %d" % k)
-    #   accuracy = (correct * 100) / k
-    #   max_ = max(max_, accuracy)
-    #   avg += accuracy
-    #   print("accuracy: %%%.2f" % accuracy)
-    #   quad_kappa = kappa.quadratic_weighted_kappa(human_rate, auto_rate)
-    #   avg = avg / i
-    #   print("kappa: %s" % quad_kappa)
-    #   print("Max: %%%.2f" % max_)
-    #   print("Avg: %%%.2f" % avg)
-
-    full_test = "image,level\n"
-    # test_files = os.listdir("data/test/%s" % (_set))
-    for k in range(0, len(test_files)):
-      if(predictions[k] == alt_predictions[k]):
-        p = predictions[k]
-      else:
-        p = 0
-      name = test_files[k].replace(".jpeg", "")
-      full_test += name + "," + str(p) + "\n"
-    test_file = open("test.csv", 'w')
-    test_file.write(full_test)
+    #ALL TREES
+    get_stats(np.array([rf_predictions, rf_alt_predictions, et_predictions, et_alt_predictions]), _csv_test, "Trees")
+    get_stats(np.array([rf_predictions, rf_alt_predictions, et_predictions, et_alt_predictions, nb_predictions, nb_alt_predictions]), _csv_test, "Trees Bayes")
+    get_stats(np.array([rf_predictions, rf_alt_predictions, et_predictions, et_alt_predictions, sv_predictions, sv_alt_predictions]), _csv_test, "Trees SVM")
+    get_stats(np.array([sv_predictions, sv_alt_predictions, nb_predictions, nb_alt_predictions]), _csv_test, "SVM Bayes")
+    get_stats(np.array([rf_predictions, rf_alt_predictions, et_predictions, et_alt_predictions, sv_predictions, sv_alt_predictions, nb_predictions, nb_alt_predictions]), _csv_test, "ALL")
 
 
   end = time.time()
