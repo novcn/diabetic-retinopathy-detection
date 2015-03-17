@@ -10,8 +10,9 @@ np.set_printoptions(threshold=1000)
 import time
 import sys
 import convnet
+import kappa
 
-def import_image(_name, _phase, _set):
+def import_image(_name, _phase, _set, lcn=False):
   try:
     img = util.im_load(_name, _phase, _set)
   except IOError:
@@ -22,34 +23,45 @@ def import_image(_name, _phase, _set):
   img = util.im_resize(img)
   im_len = np.prod(img.shape)
   img = np.reshape(img, im_len)
-  return img
+  nan_check = True
+  if(lcn == True):
+    tmp_img = util.im_lcn(img)
+    nan_check = any(np.isnan(x) for x in tmp_img.flatten())
+  if (nan_check == True):
+    return img
+  else:
+    return tmp_img
 
+test_files = 0
 
-def get_data_set(_phase, _set, save=False):
+def get_data_set(_phase, _set, save=False, lcn=False):
   imgs = []
   lvls = []
 
   if(_phase == "test"):
+    global test_files
     test_files = os.listdir("data/test/%s" % (_set))
     for image in test_files:
       name = image.replace(".jpeg", "")
-      img = import_image(name, _phase, _set)
+      img = import_image(name, _phase, _set, lcn=lcn)
       if img != []:
         imgs.append(img)
+
     return imgs
   
   if(_phase == "train" or _phase == "valid"):
     with open('data/csv/%s.csv' % (_set + "_" + _phase)) as csvfile:
       reader = csv.DictReader(csvfile)
       for row in reader:
-        img = import_image(row["image"], _phase, _set)
+        img = import_image(row["image"], _phase, _set, lcn=lcn)
         if img != []:
           imgs.append(img)
-        lvls.append(row["level"])
+          lvls.append(row["level"])
 
-        if(save):
+        if(save == True):
           print("saving image...")
           util.im_save(row["image"], img, _set)
+
 
     imgs = np.vstack(imgs)
     set = (imgs, lvls)
@@ -58,23 +70,6 @@ def get_data_set(_phase, _set, save=False):
   else:
     print("Invalid phase: %s " % (_phase))
 
-
-def shared_dataset(data_xy, borrow=True):
-    data_x, data_y = data_xy
-    shared_x = theano.shared(np.asarray(data_x,
-                                           dtype=theano.config.floatX),
-                             borrow=borrow)
-    shared_y = theano.shared(np.asarray(data_y,
-                                           dtype=theano.config.floatX),
-                             borrow=borrow)
-    # When storing data on the GPU it has to be stored as floats
-    # therefore we will store the labels as ``floatX`` as well
-    # (``shared_y`` does exactly that). But during our computations
-    # we need them as ints (we use labels as index, and if they are
-    # floats it doesn't make sense) therefore instead of returning
-    # ``shared_y`` we will have to cast it to int. This little hack
-    # lets ous get around this issue
-    return shared_x, T.cast(shared_y, 'int32')
 
 
 def main():
@@ -94,35 +89,69 @@ def main():
 
   train_set = get_data_set("train", _set)
   test_set = get_data_set("test", _set)
-  valid_set = get_data_set("valid", _set)
+  alt_train_set = get_data_set("train", _set, lcn=True)
+  alt_test_set = get_data_set("test", _set, lcn=True)
+  # valid_set = get_data_set("valid", _set)
 
-  test_set_x, test_set_y = shared_dataset(test_set)
-  valid_set_x, valid_set_y = shared_dataset(valid_set)
-  train_set_x, train_set_y = shared_dataset(train_set)
+  # test_set_x, test_set_y = shared_dataset(test_set)
+  # valid_set_x, valid_set_y = shared_dataset(valid_set)
+  # train_set_x, train_set_y = shared_dataset(train_set)
 
-  datasets = [(train_set_x, train_set_y), (valid_set_x, valid_set_y), (test_set_x, test_set_y)]
+  # datasets = [(train_set_x, train_set_y), (valid_set_x, valid_set_y), (test_set_x, test_set_y)]
 
-
-  convnet.evaluate_lenet5(datasets)  
-
+  # convnet.evaluate_lenet5(datasets)  
+  max_ = -1
+  avg = 0
+  i = 1
   predictions = model.random_forest(train_set, test_set)
+  alt_predictions = model.random_forest(alt_train_set, alt_test_set)
 
   print("predicts: ")
   print(predictions)
-
+  human_rate = []
+  auto_rate = []
   with open('data/csv/%s' % (_csv_test)) as csvfile:
     reader = csv.DictReader(csvfile)
     k = 0
     correct = 0
-    for row in reader: 
-      if(int(predictions[k]) == int(row["level"])):
-        correct += 1
-      k += 1
+    w = 0
+    # if(_set != "full"):
+    #   for row in reader: 
+    #     if(predictions[k] == alt_predictions[k]):
+    #       p = predictions[k]
+    #     else:
+    #       p = 0
+    #     human_rate.append(int(row["level"]))
+    #     auto_rate.append(p)
+    #     # if(p == int(row["levlel"])):
+    #     if(p == int(row["level"])):
+    #       correct += 1
+    #     k += 1
 
-    print("correct: %d" % correct)
-    print("total: %d" % k)
-    accuracy = (correct * 100) / k
-    print("accuracy: %%%.2f" % accuracy)
+    #   print("correct: %d" % correct)
+    #   print("total: %d" % k)
+    #   accuracy = (correct * 100) / k
+    #   max_ = max(max_, accuracy)
+    #   avg += accuracy
+    #   print("accuracy: %%%.2f" % accuracy)
+    #   quad_kappa = kappa.quadratic_weighted_kappa(human_rate, auto_rate)
+    #   avg = avg / i
+    #   print("kappa: %s" % quad_kappa)
+    #   print("Max: %%%.2f" % max_)
+    #   print("Avg: %%%.2f" % avg)
+
+    full_test = "image,level\n"
+    # test_files = os.listdir("data/test/%s" % (_set))
+    for k in range(0, len(test_files)):
+      if(predictions[k] == alt_predictions[k]):
+        p = predictions[k]
+      else:
+        p = 0
+      name = test_files[k].replace(".jpeg", "")
+      full_test += name + "," + str(p) + "\n"
+    test_file = open("test.csv", 'w')
+    test_file.write(full_test)
+
 
   end = time.time()
   print("time elapsed: ")
@@ -131,9 +160,3 @@ def main():
 
 if __name__ == '__main__':
   main()
-
-  # briankrebs
-  # rajgoel
-  # thedarktangent
-  # threatintel
-  # _defcon_

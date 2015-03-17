@@ -47,7 +47,7 @@ def im_rescale(img):
   #print("size_x: %d size_y: %d new_x: %d new_y: %d" % (size_x, size_y, new_x, new_y))
 
 def im_resize(img, dimension=128):
-  return skimage.transform.resize(img, (64, 64))
+  return skimage.transform.resize(img, (256, 256))
 
 
 

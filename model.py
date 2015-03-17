@@ -8,7 +8,7 @@ def random_forest(train_set, feat_test, n_estimators=6):
   feat_train = train_set[0]
   level_train = train_set[1]
   clf = RandomForestClassifier(n_estimators=n_estimators, max_depth=None, max_features='auto')
-  print("before fit")
+  # print("before fit")
   clf.fit(feat_train, level_train)
   del feat_train
 
