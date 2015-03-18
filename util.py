@@ -14,8 +14,8 @@ img_name: name of the image to load
 mode: <test> or <train> or <validate>
 data_set: the data_set to use
 """
-def im_load(img_name, mode, data_set, normalise=True):
-  path = "data/%s/%s/%s.jpeg" % (mode, data_set, img_name)
+def im_load(img_name, mode, normalise=True):
+  path = "data/%s/%s.jpeg" % (mode, img_name)
   print "loading %s" % path
   img = skimage.io.imread(path)
   if normalise:
